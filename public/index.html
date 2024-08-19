@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>F1 Car Data Prediction</title>
+    <link rel="stylesheet" href="style.css"> <!-- Optional: Add your CSS file here -->
+</head>
+<body>
+    <h1>F1 Car Data Prediction</h1>
+
+    <!-- Section to select driver, car, and session -->
+    <div>
+        <label for="driverNumber">Driver Number:</label>
+        <input type="number" id="driverNumber" value="55">
+
+        <label for="sessionKey">Session Key:</label>
+        <input type="number" id="sessionKey" value="9159">
+
+        <label for="minSpeed">Minimum Speed (km/h):</label>
+        <input type="number" id="minSpeed" value="315">
+
+        <button id="fetchData">Fetch Data</button>
+    </div>
+
+    <!-- Section to display fetched data -->
+    <div>
+        <h2>Car Data</h2>
+        <pre id="carData"></pre>
+    </div>
+
+    <!-- Section to display predictions -->
+    <div>
+        <h2>Predictions</h2>
+        <canvas id="chart"></canvas>
+    </div>
+
+    <!-- Include JavaScript files -->
+    <script type="module" src="src/app.js"></script>
+</body>
+</html>
