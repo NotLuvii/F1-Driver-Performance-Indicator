@@ -1,113 +1,108 @@
-import { fetchCarData, processCarData } from './data.js';
-import { trainModel, predict } from './model.js';
+// src/app.js
 
-async function main() {
-    const fetchButton = document.getElementById('fetchData');
-    fetchButton.addEventListener('click', async () => {
-        const driverNumber = document.getElementById('driverNumber').value;
-        const sessionKey = document.getElementById('sessionKey').value;
-        const minSpeed = document.getElementById('minSpeed').value;
+document.addEventListener('DOMContentLoaded', () => {
+    initializeApp();
+});
 
-        console.log('Fetching data with:', { driverNumber, sessionKey, minSpeed });
-
-        try {
-            const rawData = await fetchCarData(driverNumber, sessionKey, minSpeed);
-            console.log('Raw data:', rawData);
-
-            if (!rawData || rawData.length === 0) {
-                console.error('No data returned from API');
-                return;
-            }
-
-            const carData = processCarData(rawData);
-            console.log('Processed car data:', carData);
-
-            // Display car data
-            document.getElementById('carData').textContent = JSON.stringify(carData, null, 2);
-
-            // Train the model and make predictions
-            const model = trainModel(carData);
-            const predictions = carData.map(car => ({
-                date: new Date(car.date),  // Ensure dates are JavaScript Date objects
-                speed: car.speed,
-                actualThrottle: car.throttle,
-                predictedThrottle: predict(model, car.speed)
-            }));
-
-            console.log('Predictions:', predictions); // Log predictions to check dates
-
-            // Display predictions as a chart
-            drawChart(predictions);
-        } catch (error) {
-            console.error('Error fetching or processing data:', error);
-        }
-    });
-}
-
-let chartInstance;
-
-function drawChart(predictions) {
-    const ctx = document.getElementById('chart').getContext('2d');
-
-    // Destroy previous chart if it exists
-    if (chartInstance) {
-        chartInstance.destroy();
+driverNumber = 0
+sessionKey = 0
+async function initializeApp() {
+    try {
+        const drivers = await getDrivers();
+        populateDriverDropdown(drivers);
+        addDriverSelectionListener();
+    } catch (error) {
+        console.error('Error initializing app:', error);
     }
+}
 
-    chartInstance = new Chart(ctx, {
-        type: 'line', // Use 'line' for line chart
-        data: {
-            labels: predictions.map(p => p.date), // Use date as labels for the x-axis
-            datasets: [
-                {
-                    label: 'Actual Throttle',
-                    data: predictions.map(p => ({ x: p.date, y: p.actualThrottle })),
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                    fill: false
-                },
-                {
-                    label: 'Predicted Throttle',
-                    data: predictions.map(p => ({ x: p.date, y: p.predictedThrottle })),
-                    borderColor: 'rgba(255, 99, 132, 1)',
-                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                    fill: false
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                x: {
-                    type: 'time',
-                    time: {
-                        unit: 'minute', // Adjust as needed (e.g., 'hour', 'day')
-                        tooltipFormat: 'Pp', // Display format in tooltips
-                        displayFormats: {
-                            minute: 'HH:mm', // Format for minutes
-                            hour: 'HH:mm',   // Format for hours
-                            day: 'MMM d',    // Format for days
-                            week: 'MMM d',   // Format for weeks
-                            month: 'MMM yyyy', // Format for months
-                            quarter: '[Q]Q yyyy', // Format for quarters
-                            year: 'yyyy'     // Format for years
-                        }
-                    },
-                    title: {
-                        display: true,
-                        text: 'Date'
-                    }
-                },
-                y: {
-                    title: {
-                        display: true,
-                        text: 'Throttle (%)'
-                    }
-                }
+function populateDriverDropdown(drivers) {
+    const driverDropdown = document.getElementById('driver-dropdown');
+    driverDropdown.innerHTML = '';  // Clear any existing options
+
+    // Create a Set to keep track of unique driver identifiers
+    const uniqueDrivers = new Map();
+
+    drivers.forEach(driver => {
+        const key = driver.full_name; // or use `driver.driver_number` if it's more reliable
+        if (!uniqueDrivers.has(key)) {
+            uniqueDrivers.set(key, driver);
+            const option = document.createElement('option');
+            option.value = driver.driver_number; // Adjust according to your JSON structure
+            option.textContent = driver.full_name;
+            driverDropdown.appendChild(option);
+        }
+    });
+}
+
+function addDriverSelectionListener() {
+    const driverDropdown = document.getElementById('driver-dropdown');
+    driverDropdown.addEventListener('change', async (event) => {
+        driverNumber = event.target.value;
+        console.log(driverNumber)
+        if (driverNumber) {
+            try {
+                await displayDriverRaceHistory(driverNumber);
+            } catch (error) {
+                console.error('Error fetching driver race history:', error);
             }
         }
     });
 }
 
+async function displayDriverRaceHistory(driverNumber) {
+    try {
+        console.log('Fetching sessions...');
+        const sessions = await getSessions();
+        console.log('Sessions fetched:', sessions);
 
-main();
+        const races = sessions.filter(session => session.session_type === 'Race');
+        console.log('Races filtered:', races);
+
+        console.log('Fetching session keys for driver...');
+
+        const raceList = document.getElementById('session-list');
+        raceList.innerHTML = '';  // Clear any existing sessions
+
+        for (const session of races) {
+            const sessionKey = session.session_key;
+
+            console.log(`Fetching positions for session ${sessionKey} and driver ${driverNumber}...`);
+            const positions = await getPositions(sessionKey, driverNumber);
+            console.log('Positions fetched:', positions);
+
+            // Create a container for each race
+            const raceContainer = document.createElement('div');
+            raceContainer.className = 'race-container';
+
+            const sessionItem = document.createElement('h2');
+            sessionItem.textContent = `${session.circuit_short_name} - ${session.country_name} (${session.session_name}) - ${session.year}`;
+            raceContainer.appendChild(sessionItem);
+
+            // Create an unordered list to hold lap positions
+            const positionList = document.createElement('ul');
+            raceContainer.appendChild(positionList);
+
+            // Display lap positions for this race
+            displayLapPositions(positions, positionList);
+
+            raceList.appendChild(raceContainer);
+        }
+    } catch (error) {
+        console.error('Error displaying driver race history:', error);
+    }
+}
+
+
+
+function displayLapPositions(positions, positionList) {
+    // Clear any existing positions within the current race's list
+    positionList.innerHTML = '';
+
+    positions.forEach(position => {
+        const positionItem = document.createElement('li');
+        positionItem.textContent = `Lap: ${position.lap_number}, Position: ${position.position}`;
+        positionList.appendChild(positionItem);
+    });
+}
+
