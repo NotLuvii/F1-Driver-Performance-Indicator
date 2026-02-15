@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>F1 Era Crossover Simulator</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;800&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <h1>F1 Lap Time Predictor</h1>
+            <p class="tagline">Era Crossover Simulator — What if Senna drove a 2025 Red Bull at Suzuka?</p>
+        </header>
+
+        <main class="main">
+            <aside class="panel panel-controls">
+                <h2>Controls</h2>
+                <div class="form-group">
+                    <label for="driver-select">Driver (any era)</label>
+                    <select id="driver-select">
+                        <option value="">— Select Driver —</option>
+                        <option value="__loading">Loading drivers…</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="car-select">Car + Era</label>
+                    <select id="car-select">
+                        <option value="">— Select Car —</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="track-select">Track</label>
+                    <select id="track-select">
+                        <option value="">— Select Track —</option>
+                    </select>
+                </div>
+                <button type="button" id="predict-btn" class="btn-predict">Predict Lap Time</button>
+            </aside>
+
+            <section class="panel panel-results">
+                <h2>Predicted Lap Time</h2>
+                <div id="result-area" class="result-area result-area--empty">
+                    <p id="result-placeholder" class="placeholder">Choose driver, car & track, then click Predict.</p>
+                    <p id="result-time" class="result-time" aria-hidden="true"></p>
+                    <ul id="result-breakdown" class="result-breakdown" aria-hidden="true"></ul>
+                </div>
+            </section>
+        </main>
+
+        <section class="track-section">
+            <h2>Track Map</h2>
+            <div class="track-container">
+                <canvas id="track-canvas" class="track-canvas" width="500" height="280" aria-hidden="true"></canvas>
+                <p id="track-legend" class="track-legend">Select a track and predict to see the lap animation.</p>
+            </div>
+        </section>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
