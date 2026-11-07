@@ -10,10 +10,14 @@ async function load() {
 }
 
 self.onmessage = async (ev) => {
-  const { id, picks, track, options } = ev.data;
+  const { id, picks, track, options, kind, seed } = ev.data;
   try {
     const m = await load();
     const bds = picks.map((p) => m.entry(p.driver, p.car, p.peak));
+    if (kind === "race") {
+      self.postMessage({ id, type: "race", race: F1Sim.sampleRace(m, bds, track, options, seed) });
+      return;
+    }
     let last = 0;
     const summary = F1Sim.simulate(m, bds, track, options, (f) => {
       if (f - last >= 0.02 || f === 1) { last = f; self.postMessage({ id, type: "progress", value: f }); }
