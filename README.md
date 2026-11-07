@@ -2,18 +2,20 @@
 
 Put any Formula 1 driver in any F1 car on any circuit and simulate the race thousands of times.
 
+**Try it in your browser: https://notluvii.github.io/F1-Driver-Performance-Indicator/**
+
 ```
 python -m f1dpi simulate -e "Senna:1988" -e "Max Verstappen:2023" -e "Hamilton:2020" -t silverstone
 ```
 
 ```
 British Grand Prix · Silverstone Circuit · 52 laps · 1,000 simulations · 20 cars
-Conditions: dry 86.5%, wet start 5.8%, rain mid-race 7.7% · safety car in 43.0% of races, VSC in 42.2%
+Conditions: dry 86.5%, wet start 5.2%, rain mid-race 8.3% · safety car in 42.2% of races, VSC in 41.1%
 
 Entry                           Best of picks    Win  Podium  Avg grid  Avg finish    DNF  Stops
-Ayrton Senna · McLaren 1988             46.0%  45.3%   84.7%       2.0         3.9  12.9%    1.2
-Lewis Hamilton · Mercedes 2020          27.9%  27.3%   81.4%       2.8         4.0  11.0%    1.2
-Max Verstappen · Red Bull 2023          26.1%  25.6%   81.3%       2.7         4.2  12.2%    1.2
+Ayrton Senna · McLaren 1988             48.0%  40.9%   75.7%       2.4         4.0  11.7%    1.2
+Lewis Hamilton · Mercedes 2020          26.4%  21.7%   60.6%       3.4         4.5  10.3%    1.2
+Max Verstappen · Red Bull 2023          25.6%  20.0%   61.9%       3.3         5.0  13.3%    1.2
 
 Where the pace comes from (score units; +1.0 ≈ 1.17% of lap time):
 Entry                           Driver  Era fit  Age/exp    Car  Total    Wet
@@ -33,12 +35,27 @@ rating for **how well they suited each generation of F1 car**.
 ```bash
 pip install -r requirements.txt
 
-streamlit run app.py                     # point-and-click app in your browser
+streamlit run app.py                     # the same app, run locally with Streamlit
 python -m f1dpi simulate -e "Clark:1963" -e "Leclerc:2024" -t monaco --weather wet
 python -m pytest                         # 19 tests
 ```
 
 The fitted ratings ship in `model/`, so you don't need to download anything to run it.
+
+### The website
+
+The public site lives in `docs/` and needs no server: `docs/sim.js` is a JavaScript port of the race
+simulator, which runs in a Web Worker in the visitor's browser, and `docs/data/` holds a copy of the
+fitted ratings. The Python and JavaScript simulators agree to within Monte Carlo noise (about 1–2
+percentage points at 2,000 races). Matchups are saved in the page address, so any race can be shared
+as a link.
+
+To preview it locally, run `python -m http.server -d docs 8000` and open http://localhost:8000.
+After refitting with `python -m f1dpi build`, copy `model/*.json` into `docs/data/`, then publish:
+
+```bash
+git subtree push --prefix docs origin gh-pages
+```
 
 ### CLI cheatsheet
 
@@ -169,17 +186,17 @@ compare with the real season. These are averaged over six circuits:
 
 | Teammates | Season | Real: A finished ahead | Simulated |
 |---|---|---|---|
-| Max Verstappen vs Sergio Pérez | 2023 | 91% (20/22) | 90% |
+| Max Verstappen vs Sergio Pérez | 2023 | 91% (20/22) | 86% |
 | Sebastian Vettel vs Mark Webber | 2011 | 84% (16/19) | 77% |
-| Lewis Hamilton vs Valtteri Bottas | 2019 | 71% (15/21) | 78% |
+| Lewis Hamilton vs Valtteri Bottas | 2019 | 71% (15/21) | 72% |
 | Fernando Alonso vs Lewis Hamilton | 2007 | 59% (10/17) | 61% |
-| Lando Norris vs Oscar Piastri | 2025 | 57% (13/23) | 65% |
-| Ayrton Senna vs Alain Prost | 1988 | 56% (9/16) | 65% |
+| Lando Norris vs Oscar Piastri | 2025 | 57% (13/23) | 62% |
+| Ayrton Senna vs Alain Prost | 1988 | 56% (9/16) | 68% |
 | Charles Leclerc vs Carlos Sainz | 2022 | 55% (11/20) | 58% |
-| Lewis Hamilton vs Nico Rosberg | 2016 | 50% (10/20) | 51% |
+| Lewis Hamilton vs Nico Rosberg | 2016 | 50% (10/20) | 53% |
 
 The mean absolute error is **4.7 percentage points**. The simulator leans slightly toward the faster
-teammate (+2.6 points on average).
+teammate (+1.7 points on average).
 
 The test suite also fits the regression to **synthetic seasons with known driver skills** and checks that
 it recovers them (correlation > 0.85).
@@ -214,6 +231,7 @@ f1dpi/
   cli.py         command line
   download.py    fetch a fresh data dump
 app.py           Streamlit app
+docs/            the public website (static HTML/CSS/JS + a JavaScript port of the simulator)
 model/           fitted ratings.json + tracks.json
 tests/           pytest suite
 ```

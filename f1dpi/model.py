@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from functools import lru_cache
 from pathlib import Path
+from statistics import NormalDist
 
 import numpy as np
 
@@ -308,16 +309,19 @@ class Model:
                                         wet_units=b.wet, crash_mult=b.crash_ratio, mech_rate=mech,
                                         is_user=False, car_id=ck))
             return out
+        # anonymous field: evenly spaced quantiles of a modern season's spread of cars and
+        # drivers (deterministic, so the opposition is the same strength every time)
         f = self.meta["field"]
-        rng = np.random.default_rng(seed)
-        cars = rng.normal(f["car_mean"], f["car_sd"], (n + 1) // 2)
+        k = (n + 1) // 2
+        nd = NormalDist()
+        cars = [f["car_mean"] + f["car_sd"] * nd.inv_cdf(1 - (j + 0.5) / k) for j in range(k)]
+        drivers = [f["driver_mean"] + f["driver_sd"] * nd.inv_cdf(1 - (j + 0.5) / max(n, 1)) for j in range(n)]
         for i in range(n):
             out.append(SimEntry(
                 key=f"field:{i + 1}", label=f"Field car {i + 1}", short=f"F{i + 1:02d}",
-                driver_units=float(rng.normal(f["driver_mean"], f["driver_sd"])),
-                car_units=float(cars[i // 2]), wet_units=0.0, crash_mult=1.0,
-                mech_rate=0.0 if reliability == "off" else self.modern_mech, is_user=False,
-                car_id=f"field-car-{i // 2}"))
+                driver_units=float(drivers[i]), car_units=float(cars[i // 2]), wet_units=0.0,
+                crash_mult=1.0, mech_rate=0.0 if reliability == "off" else self.modern_mech,
+                is_user=False, car_id=f"field-car-{i // 2}"))
         return out
 
 
