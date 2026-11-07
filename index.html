@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>F1 Driver Performance Indicator</title>
+  <meta name="description" content="Put any Formula 1 driver in any F1 car on any circuit and simulate the race: safety cars, rain, tyre wear, crashes and how well each driver suited that generation of car.">
+  <meta property="og:title" content="F1 Driver Performance Indicator">
+  <meta property="og:description" content="Senna in the 1988 McLaren vs Verstappen in the 2023 Red Bull at Silverstone? Simulate it.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%232a2f36'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23e1261c'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Saira+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="masthead wrap">
+    <h1>F1 Driver Performance Indicator</h1>
+    <p class="lede">Put any driver in any Formula 1 car on any circuit, then race them a thousand times. Ratings come from every Grand Prix since 1950, including how well each driver suited each generation of car.</p>
+    <nav class="links">
+      <a href="#how">How it works</a>
+      <a href="https://github.com/NotLuvii/F1-Driver-Performance-Indicator">Source on GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="grid-panel" aria-labelledby="grid-title">
+      <div class="wrap">
+        <h2 id="grid-title" class="visually-hidden">Set up the race</h2>
+        <div class="race-settings">
+          <label class="field field-wide">Circuit
+            <select id="track"></select>
+          </label>
+          <label class="field">Weather
+            <select id="weather">
+              <option value="random">Random (this circuit's odds)</option>
+              <option value="dry">Dry</option>
+              <option value="wet">Wet start</option>
+              <option value="mixed">Rain arrives mid-race</option>
+            </select>
+          </label>
+          <label class="field">Reliability
+            <select id="reliability">
+              <option value="modern">Modern, same for everyone</option>
+              <option value="era">Each car's real reliability</option>
+              <option value="off">No mechanical failures</option>
+            </select>
+          </label>
+          <label class="field">Rest of the grid
+            <select id="field"></select>
+          </label>
+        </div>
+        <p id="track-note" class="track-note"></p>
+
+        <ol id="slots" class="slots" aria-label="Starting grid"></ol>
+
+        <div class="grid-footer">
+          <div class="toggles">
+            <label class="check"><input type="checkbox" id="same-car"> Everyone in the same car</label>
+            <label class="check"><input type="checkbox" id="peak"> Every driver at their peak age</label>
+            <label class="check"><input type="checkbox" id="safety-car" checked> Safety cars</label>
+            <label class="field field-inline">Races
+              <select id="sims">
+                <option>250</option><option>500</option><option selected>1000</option><option>2000</option><option>5000</option>
+              </select>
+            </label>
+          </div>
+          <div id="same-car-pick" class="same-car-pick" hidden>
+            <label class="field">Car year <select id="same-year"></select></label>
+            <label class="field field-wide">Car <select id="same-team"></select></label>
+          </div>
+          <div class="start">
+            <div class="lights" id="lights" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+            <button id="go" class="go" type="button">Start the race</button>
+          </div>
+          <p id="status" class="status" role="status" aria-live="polite"></p>
+        </div>
+      </div>
+    </section>
+
+    <section id="results" class="results wrap" hidden aria-labelledby="results-title">
+      <div class="results-head">
+        <h2 id="results-title"></h2>
+        <button id="share" class="ghost" type="button">Copy link to this race</button>
+      </div>
+      <p id="conditions" class="conditions"></p>
+
+      <div class="results-top">
+        <div>
+          <h3>Who comes out on top</h3>
+          <p class="hint">Share of races where each driver finished ahead of every other driver you picked.</p>
+          <ol id="tower" class="tower"></ol>
+        </div>
+        <div>
+          <h3>How each race ends</h3>
+          <p class="hint" id="outcome-hint"></p>
+          <div id="outcomes" class="outcomes"></div>
+          <div id="outcome-legend" class="legend"></div>
+        </div>
+      </div>
+
+      <h3>Head-to-head</h3>
+      <p class="hint">Chance the driver on the left finishes ahead of the driver across the top.</p>
+      <div class="table-scroll"><table id="h2h" class="h2h"></table></div>
+
+      <h3>Where the pace comes from</h3>
+      <p class="hint" id="pace-hint"></p>
+      <div class="table-scroll"><table id="pace" class="data"></table></div>
+      <ul id="pace-notes" class="notes"></ul>
+
+      <h3>Full numbers</h3>
+      <div class="table-scroll"><table id="numbers" class="data"></table></div>
+
+      <h3 id="sample-title">One of those races, lap by lap</h3>
+      <p class="hint">Positions of your drivers. Grey bands are safety cars; blue shading is a wet track.</p>
+      <div id="lapchart" class="lapchart"></div>
+      <p id="sample-result" class="sample-result"></p>
+      <details class="log">
+        <summary>Race control log</summary>
+        <ol id="log"></ol>
+      </details>
+    </section>
+
+    <section id="how" class="how wrap">
+      <h2>How it works</h2>
+      <div class="how-cols">
+        <div>
+          <h3>Driver, car and era</h3>
+          <p>Every qualifying and race result since 1950 is explained as driver skill plus car, plus how well that driver suited that generation of car, plus age and experience. Teammates share a car, so the split between driver and car comes mostly from teammate comparisons chained across careers. It's fitted as one ridge regression, with penalties chosen by cross-validation.</p>
+          <p>There are 15 generations, from 1950s front-engined cars to the 2026 active-aero hybrids. A driver who never raced a generation gets an estimate from the ones they did, weighted by how similar the cars were.</p>
+        </div>
+        <div>
+          <h3>The race</h3>
+          <p>Each race runs lap by lap: qualifying, a standing start, tyre compounds and wear (different for every car), fuel, dirty air with a circuit-specific overtaking threshold, pit strategy, rain, crashes, mechanical failures, safety cars and virtual safety cars.</p>
+          <p>Every car races in a modern-sized performance spread, so a 1955 car and a 2023 car are compared by how dominant each was in its own field.</p>
+        </div>
+        <div>
+          <h3>How close is it?</h3>
+          <p>Real teammate pairs simulated in their own cars land within 4.7 points, on average, of how often one actually finished ahead of the other. Verstappen vs Pérez in 2023: 91% real, 86% simulated.</p>
+          <p>Known weak spot: finishing positions can't show a huge winning margin, so very dominant cars look closer to their rivals than they were.</p>
+        </div>
+      </div>
+      <p class="fineprint" id="fineprint">Unofficial fan project, not associated with Formula 1 or the FIA. Race data from the Jolpica F1 database.</p>
+    </section>
+  </main>
+
+  <datalist id="driver-list"></datalist>
+  <script src="sim.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
