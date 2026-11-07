@@ -4,6 +4,9 @@
   "use strict";
   const TYRE = { S: ["#e1261c", "Soft"], M: ["#f2c200", "Medium"], H: ["#ececec", "Hard"], I: ["#2bb673", "Intermediate"], W: ["#2a78d6", "Full wet"] };
   const SPEEDS = [1, 5, 10, 25, 50, 100];
+  const START = -5;          // the five start lights come on during the last five seconds
+  const CAMERAS = [["tcam", "T-cam"], ["cockpit", "Cockpit"], ["chase", "Chase"], ["tv", "TV"]];
+  const webgl = (() => { try { const c = document.createElement("canvas"); return !!(c.getContext("webgl2") || c.getContext("webgl")); } catch (e) { return false; } })();
   const FIELD_COLOR = "#8b939e";
   const NS = "http://www.w3.org/2000/svg";
   const reduceMotion = () => root.matchMedia && root.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -55,7 +58,7 @@
     for (let i = 0; i < n; i++) {
       let m = 0;
       for (let j = -2; j <= 2; j++) m = Math.max(m, kappa[(i + j + n) % n]);
-      v[i] = Math.max(0.32, 1 / (1 + 3.2 * m));
+      v[i] = Math.max(0.42, 1 / (1 + 2.4 * m));
     }
     const vs = new Float64Array(n);  // smooth to mimic braking and acceleration zones
     for (let i = 0; i < n; i++) { let t = 0; for (let j = -6; j <= 6; j++) t += v[(i + j + n) % n]; vs[i] = t / 13; }
@@ -90,7 +93,10 @@
       this.opts = options || {};
       this.speed = 25;
       this.playing = false;
-      this.T = 0;
+      this.T = START;
+      this.view = "map";
+      this.watch = null;
+      this.camMode = "tcam";
       this.raf = null;
       this.lastTowerUpdate = 0;
       this.lastLap = 0;
@@ -112,6 +118,7 @@
       this.colorOf = colorOf;
       this.L = race.laps;
       this.geo = buildGeometry(circuit || genericLoop());
+      this.circuit3d = circuit ? Object.assign({}, circuit) : null;
       const tr = race.trace;
       const keys = Object.keys(tr.cars);
       this.cars = keys.map((k) => {
@@ -133,7 +140,9 @@
       this.winnerT = Math.min(...finishes);
       this.endT = Math.max(...finishes, ...this.cars.map((c) => c.retireT || 0)) + 4;
       this.render();
-      this.seekTime(0);
+      if (!this.watch || !this.cars.some((c) => c.key === this.watch)) this.watch = Object.keys(colorOf)[0] || this.cars[0].key;
+      this.seekTime(START);
+      if (this.view === "onboard") this.loadOnboard();
       this.autoplay = !reduceMotion();
       if (this.autoplay && this.io) {             // already on screen (e.g. "Watch a different race")
         const r = this.root.getBoundingClientRect();
@@ -144,7 +153,7 @@
     // distance (in laps) and state of a car at race time T
     stateAt(c, T) {
       const e = c.lapEnd, n = e.length;
-      if (c.retireT !== null && T >= c.retireT) return { d: c.retireD, out: true };
+      if (c.retireT !== null && T >= c.retireT) return { d: c.retireD, out: true, outAt: c.retireT };
       if (T <= 0) return { d: -c.gridBack, lap: 1, tyre: c.tyres[0] };
       if (n === 0) {                                     // retires on the opening lap
         const frac = this.geo.timeToDist(T / c.lapT);
@@ -178,6 +187,9 @@
       const order = this.cars.slice().sort((a, b) => a.user - b.user);
       for (const c of order) {
         const grp = s("g", { class: c.user ? "car user" : "car" });
+        grp.addEventListener("click", () => this.watchCar(c.key));
+        grp.style.cursor = "pointer";
+        const title = s("title"); title.textContent = `${c.info.name}: watch onboard`; grp.append(title);
         grp.append(s("circle", { r: c.user ? 15 : 10, fill: c.color }));
         if (c.user) {
           const t = s("text", { x: 0, y: 0, class: "car-label", "text-anchor": "middle" });
@@ -203,7 +215,8 @@
       this.tower = h("ol", { class: "rp-tower", style: `height:${this.cars.length * 30}px` });
       this.rows = {};
       for (const c of this.cars) {
-        const row = h("li", { class: c.user ? "user" : "" },
+        const row = h("li", { class: c.user ? "user" : "", tabindex: 0, role: "button", title: `Watch ${c.info.name} onboard`,
+          onclick: () => this.watchCar(c.key), onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); this.watchCar(c.key); } } },
           h("span", { class: "rp-pos" }), h("i", { class: "rp-chip", style: `background:${c.color}` }),
           h("span", { class: "rp-name", text: c.user || c.info.car ? c.info.name.split(" ").slice(-1)[0] : c.info.name.replace("Field car", "Field") }),
           h("span", { class: "rp-gap" }), h("i", { class: "rp-tyre" }));
@@ -211,9 +224,15 @@
         this.rows[c.key] = row;
       }
       const note = this.geo.generic ? h("p", { class: "rp-note" }, "We don't have this circuit's layout, so the replay uses a generic loop.") : null;
+      this.viewBtns = [["map", "Track map"], ["onboard", "Onboard"]].map(([v, label]) => h("button", { type: "button", class: "rp-view",
+        "aria-pressed": String(this.view === v), disabled: v === "onboard" && !webgl ? true : null,
+        title: v === "onboard" && !webgl ? "Your browser can't show 3D graphics" : null, onclick: () => this.setView(v) }, label));
+      this.obWrap = this.buildOnboardShell();
+      this.svg.style.display = this.view === "map" ? "" : "none";
       this.root.replaceChildren(
-        h("div", { class: "rp-status" }, this.lapLabel, this.clockLabel, this.flag, this.wetFlag),
-        h("div", { class: "rp-mapwrap" }, this.svg, note),
+        h("div", { class: "rp-status" }, this.lapLabel, this.clockLabel, this.flag, this.wetFlag,
+          h("div", { class: "rp-views", role: "group", "aria-label": "Replay view" }, this.viewBtns)),
+        h("div", { class: "rp-mapwrap" }, this.svg, this.obWrap, note),
         h("div", { class: "rp-side" }, this.tower),
         h("div", { class: "rp-controls" }, this.playBtn,
           h("div", { class: "rp-speeds", role: "group", "aria-label": "Replay speed" }, this.speedBtns),
@@ -223,12 +242,118 @@
         this.ticker);
     }
 
+    buildOnboardShell() {
+      const wrap = h("div", { class: "ob-wrap", tabindex: 0, hidden: this.view !== "onboard" ? true : null,
+        "aria-label": "Onboard camera. Left and right arrows change car, C changes camera." });
+      wrap.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowRight" || e.key === "ArrowLeft") { e.preventDefault(); this.cycleCar(e.key === "ArrowRight" ? 1 : -1); }
+        if (e.key === "c" || e.key === "C") { const i = CAMERAS.findIndex(([m]) => m === this.camMode); this.setCam(CAMERAS[(i + 1) % CAMERAS.length][0]); }
+        if (e.key === " ") { e.preventDefault(); this.playing ? this.pause() : this.play(); }
+      });
+      this.obStage = h("div", { class: "ob-stage" });
+      this.obLoading = h("p", { class: "ob-loading" }, "Building the circuit…");
+      const H = (cls) => h("span", { class: cls });
+      this.hud = {
+        pos: H("ob-pos"), stripe: h("i", { class: "ob-stripe" }), name: h("strong"), car: h("span"),
+        speed: h("b"), gear: H("ob-gear"), rpm: h("i"), thr: h("i", { class: "thr" }), brk: h("i", { class: "brk" }),
+        ahead: h("div"), behind: h("div"), tyre: h("div"),
+      };
+      const hd = this.hud;
+      const hudEl = h("div", { class: "ob-hud", "aria-hidden": "true" },
+        h("div", { class: "ob-id" }, hd.pos, hd.stripe, h("div", {}, hd.name, hd.car)),
+        h("div", { class: "ob-speed" }, h("div", { class: "ob-kmh" }, hd.speed, h("span", {}, "km/h")), hd.gear,
+          h("div", { class: "ob-rpm" }, hd.rpm), h("div", { class: "ob-pedals" }, hd.thr, hd.brk)),
+        h("div", { class: "ob-gaps" }, hd.ahead, hd.behind, hd.tyre));
+      this.obSelect = h("select", { class: "ob-select", "aria-label": "Car to watch", onchange: (e) => this.watchCar(e.target.value) });
+      this.camBtns = CAMERAS.map(([m, label]) => h("button", { type: "button", class: "rp-speed", "aria-pressed": String(m === this.camMode), onclick: () => this.setCam(m) }, label));
+      const bar = h("div", { class: "ob-bar" },
+        h("div", { class: "ob-pick" },
+          h("button", { type: "button", class: "rp-ghost", "aria-label": "Previous car", onclick: () => this.cycleCar(-1) }, "‹"),
+          this.obSelect,
+          h("button", { type: "button", class: "rp-ghost", "aria-label": "Next car", onclick: () => this.cycleCar(1) }, "›")),
+        h("div", { class: "rp-speeds", role: "group", "aria-label": "Camera" }, this.camBtns));
+      wrap.append(h("div", { class: "ob-screen" }, this.obStage, hudEl, this.obLoading), bar);
+      this.fillSelect();
+      return wrap;
+    }
+    fillSelect() {
+      if (!this.obSelect) return;
+      const users = this.cars.filter((c) => c.user), field = this.cars.filter((c) => !c.user);
+      const opt = (c) => h("option", { value: c.key }, c.info.car ? `${c.info.name} (${c.info.car})` : c.info.name);
+      this.obSelect.replaceChildren(h("optgroup", { label: "Your drivers" }, users.map(opt)), h("optgroup", { label: "Rest of the grid" }, field.map(opt)));
+      if (this.watch) this.obSelect.value = this.watch;
+    }
+    setView(v) {
+      if (v === "onboard" && !webgl) return;
+      this.view = v;
+      this.viewBtns.forEach((b) => b.setAttribute("aria-pressed", String((b.textContent === "Onboard") === (v === "onboard"))));
+      this.svg.style.display = v === "map" ? "" : "none";
+      this.obWrap.hidden = v !== "onboard";
+      if (v === "onboard") this.loadOnboard();
+      this.draw(performance.now(), true);
+    }
+    async loadOnboard() {
+      this.obLoading.hidden = false;
+      this.obLoading.textContent = "Building the circuit…";
+      try {
+        if (!this.ob) {
+          const mod = await import("./onboard.js");
+          this.ob = new mod.OnboardView(this.obStage);
+        }
+        const circuit = this.circuit3d || genericLoop();
+        if (!circuit.length_m) circuit.length_m = Math.round(this.track.base_lap * 58);
+        await this.ob.load({ circuit, trackMeta: this.track, race: this.race, entries: this.info, colorOf: this.colorOf, laps: this.L });
+        this.ob.setMode(this.camMode);
+        this.ob.select(this.watch);
+        this.obLoading.hidden = true;
+        this.draw(performance.now(), true);
+      } catch (err) {
+        this.obLoading.textContent = `The onboard view couldn't start: ${err && err.message ? err.message : err}`;
+      }
+    }
+    watchCar(key) {
+      this.watch = key;
+      if (this.obSelect) this.obSelect.value = key;
+      Object.entries(this.rows || {}).forEach(([k, r]) => r.classList.toggle("watching", k === key && this.view === "onboard"));
+      if (this.view !== "onboard") this.setView("onboard");
+      if (this.ob) this.ob.select(key);
+      this.draw(performance.now(), true);
+    }
+    cycleCar(dir) {
+      const order = this.lastOrder || this.cars.map((c) => c.key);
+      const i = order.indexOf(this.watch);
+      this.watchCar(order[(i + dir + order.length) % order.length]);
+    }
+    setCam(m) {
+      this.camMode = m;
+      this.camBtns.forEach((b, i) => b.setAttribute("aria-pressed", String(CAMERAS[i][0] === m)));
+      if (this.ob) this.ob.setMode(m);
+    }
+    updateHud() {
+      const d = this.ob && this.ob.hud();
+      if (!d) return;
+      const hd = this.hud, c = d.car;
+      hd.pos.textContent = d.out ? "Out" : `P${d.position}`;
+      hd.stripe.style.background = c.user ? c.livery : "#8b939e";
+      hd.name.textContent = c.info.name;
+      hd.car.textContent = c.info.car || "Field car";
+      hd.speed.textContent = String(Math.round(d.kmh));
+      hd.gear.textContent = d.kmh < 3 ? "N" : String(d.gear);
+      hd.rpm.style.width = `${(d.rpm * 100).toFixed(0)}%`;
+      hd.thr.style.height = `${(d.throttle * 100).toFixed(0)}%`;
+      hd.brk.style.height = `${(d.brake * 100).toFixed(0)}%`;
+      const fmt = (o, sign) => (o ? `${o.name} ${sign}${o.gap.toFixed(1)}s` : "–");
+      hd.ahead.textContent = `Ahead: ${fmt(d.ahead, "+")}`;
+      hd.behind.textContent = `Behind: ${fmt(d.behind, "−")}`;
+      hd.tyre.replaceChildren(h("i", { class: "ob-tyre", style: `background:${d.tyreHex}` }), d.tyreName ? `${d.tyreName} tyres` : "");
+    }
+
     setSpeed(sp) {
       this.speed = sp;
       this.speedBtns.forEach((b, i) => b.setAttribute("aria-pressed", String(SPEEDS[i] === sp)));
     }
     play() {
-      if (this.T >= this.endT) this.seekTime(0);
+      if (this.T >= this.endT) this.seekTime(START);
       this.playing = true; this.playBtn.textContent = "Pause";
       let last = performance.now();
       const tick = (now) => {
@@ -243,10 +368,10 @@
     }
     pause() { this.playing = false; if (this.playBtn) this.playBtn.textContent = this.T >= this.endT ? "Replay" : "Play"; if (this.raf) cancelAnimationFrame(this.raf); }
     stop() { this.pause(); }
-    seekTime(T) { this.T = Math.max(0, Math.min(this.endT, T)); this.lastTowerUpdate = 0; this.draw(performance.now(), true); if (!this.playing) this.pause(); }
+    seekTime(T) { this.T = Math.max(START, Math.min(this.endT, T)); this.lastTowerUpdate = 0; this.draw(performance.now(), true); if (!this.playing) this.pause(); }
     seekLap(lap) {
       const leader = this.cars.filter((c) => c.res.position === 1)[0];
-      this.seekTime(lap <= 0 ? 0 : leader.lapEnd[Math.min(lap, leader.lapEnd.length) - 1] - 0.01);
+      this.seekTime(lap <= 0 ? START : leader.lapEnd[Math.min(lap, leader.lapEnd.length) - 1] - 0.01);
     }
 
     draw(now, force) {
@@ -271,7 +396,7 @@
       const leaderD = Math.max(...running.map((c) => st[c.key].d));
       const lap = Math.max(1, Math.min(this.L, Math.floor(leaderD) + 1));
       const finished = T >= this.winnerT;
-      this.lapLabel.textContent = finished ? `Finished, ${this.L} laps` : T <= 0 ? `Lights out` : `Lap ${lap} of ${this.L}`;
+      this.lapLabel.textContent = finished ? `Finished, ${this.L} laps` : T < 0 ? `Start lights: ${Math.min(5, Math.max(1, Math.floor(T + 6)))} of 5` : T < 2 ? "Lights out" : `Lap ${lap} of ${this.L}`;
       this.clockLabel.textContent = clock(Math.max(0, T));
       const neutral = this.race.trace.neutral[lap - 1];
       this.flag.textContent = finished ? "Chequered flag" : neutral === "SC" ? "Safety car" : neutral === "VSC" ? "Virtual safety car" : "Green flag";
@@ -282,6 +407,10 @@
       if (!this.slider.matches(":active")) this.slider.value = finished ? this.L : lap - 1;
       if (lap !== this.lastLap) { this.lastLap = lap; if (this.opts.onLap) this.opts.onLap(lap); }
       if (force || now - this.lastTowerUpdate > 180) { this.lastTowerUpdate = now; this.drawTower(st, T, leaderD, finished); this.drawTicker(lap, T); }
+      if (this.view === "onboard" && this.ob && this.ob.ready) {
+        this.ob.update(T, st, { lap, neutral: finished ? null : neutral, wet });
+        this.updateHud();
+      }
     }
 
     drawTower(st, T, leaderD, finished) {
@@ -294,6 +423,7 @@
         return B.d - A.d;
       });
       const winnerTime = this.winnerT;
+      this.lastOrder = order.map((c) => c.key);
       order.forEach((c, i) => {
         const row = this.rows[c.key], x = st[c.key];
         row.style.transform = `translateY(${i * 30}px)`;
@@ -313,6 +443,7 @@
         row.children[4].style.background = t ? t[0] : "transparent";
         row.children[4].title = t ? `${t[1]} tyres` : "";
         row.classList.toggle("out", !!x.out);
+        row.classList.toggle("watching", this.view === "onboard" && c.key === this.watch);
       });
     }
 

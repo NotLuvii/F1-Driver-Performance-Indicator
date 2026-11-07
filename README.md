@@ -59,6 +59,29 @@ using a speed profile derived from each circuit's curvature. Circuit outlines co
 `python -m f1dpi.circuits`. The four old circuits that dataset doesn't cover (Valencia, Yeongam,
 Buddh, Fuji) are shown on a generic loop.
 
+Switch the replay to **Onboard** to ride along in 3D (`docs/onboard.js`, built on
+[three.js](https://threejs.org) r170, vendored in `docs/vendor/`):
+
+- **Any car, four cameras.** Click a car on the map or a row in the timing tower, or use the arrow keys,
+  to jump into that car. Choose a T-cam above the airbox, the driver's eye view through the halo, a
+  chase camera, or trackside TV cameras that zoom in as the car goes by.
+- **A broadcast-style HUD.** Position, speed, gear, revs, throttle and brake, gaps to the cars ahead
+  and behind, and the current tyre compound.
+- **The circuit at real scale.** It's built from the outline with a racing line that takes the inside
+  of corners. It has red-and-white kerbs, run-off, barriers, a grandstand, a start-light gantry
+  (the lights count down before the start), and trees or city blocks on street circuits.
+- **Rain and safety cars.** Rain darkens the sky, makes the track shiny and throws spray behind the cars.
+  A safety car appears in front of the leader when it's deployed.
+- **The car model is original,** not a copy of any real team's car. It's built in Blender by a script
+  (`tools/blender/build_car.py`, see the preview below) and exported to `docs/models/car.glb`. The
+  liveries, helmets and tyre markings are recoloured in the browser.
+
+```bash
+blender --background --factory-startup --python tools/blender/build_car.py -- .
+```
+
+![The race car model](tools/blender/preview.png)
+
 To preview it locally, run `python -m http.server -d docs 8000` and open http://localhost:8000.
 After refitting with `python -m f1dpi build`, copy `model/*.json` into `docs/data/`, then publish:
 
@@ -240,8 +263,10 @@ f1dpi/
   cli.py         command line
   download.py    fetch a fresh data dump
   circuits.py    circuit outlines for the website's race replay
+tools/blender/   build_car.py: the 3D race car (Blender script) + preview.png
 app.py           Streamlit app
-docs/            the public website (static HTML/CSS/JS + a JavaScript port of the simulator)
+docs/            the public website: static HTML/CSS/JS, a JavaScript port of the simulator,
+                 replay.js (2D replay), onboard.js (3D onboard), models/car.glb, vendor/ (three.js)
 model/           fitted ratings.json + tracks.json
 tests/           pytest suite
 ```

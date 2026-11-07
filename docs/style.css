@@ -348,3 +348,61 @@ td.who span.swatch { display: inline-block; }
 @media (prefers-reduced-motion: reduce) {
   .rp-tower li, .track-wet { transition: none; }
 }
+
+/* ------------------------------------------------------------ onboard (3D) */
+.rp-views { display: inline-flex; margin-left: auto; border: 1px solid var(--tarmac-line); border-radius: 8px; overflow: hidden; }
+.rp-view {
+  font: 600 0.9rem var(--body); color: var(--paint-dim); background: transparent; border: 0;
+  border-left: 1px solid var(--tarmac-line); padding: 7px 12px; cursor: pointer;
+}
+.rp-view:first-child { border-left: 0; }
+.rp-view[aria-pressed="true"] { background: var(--paint); color: #16191d; }
+.rp-view:disabled { opacity: 0.45; cursor: not-allowed; }
+.rp-tower li { cursor: pointer; }
+.rp-tower li:hover { background: rgba(255, 255, 255, 0.07); }
+.rp-tower li.watching { box-shadow: inset 3px 0 0 var(--lights); background: rgba(225, 38, 28, 0.16); color: var(--paint); }
+.car { cursor: pointer; }
+
+.ob-wrap { outline-offset: 4px; }
+.ob-wrap[hidden] { display: none; }
+.ob-screen { position: relative; border-radius: 8px; overflow: hidden; background: #0f1114; min-height: 200px; }
+.ob-canvas { display: block; width: 100%; }
+.ob-loading { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: var(--paint-dim); background: #0f1114; }
+.ob-loading[hidden] { display: none; }
+.ob-hud { position: absolute; inset: 0; pointer-events: none; color: #f2f3ef; font-variant-numeric: tabular-nums; }
+.ob-hud > div { position: absolute; background: rgba(12, 14, 17, 0.72); border-radius: 8px; backdrop-filter: blur(4px); }
+.ob-id { top: 12px; left: 12px; display: flex; align-items: center; gap: 10px; padding: 8px 14px 8px 10px; }
+.ob-pos { font: 700 1.9rem/1 var(--display); min-width: 2.2ch; }
+.ob-stripe { width: 5px; align-self: stretch; border-radius: 3px; }
+.ob-id strong { display: block; font-weight: 600; font-size: 1rem; }
+.ob-id span { color: #b9bec6; font-size: 0.85rem; }
+.ob-speed { left: 12px; bottom: 12px; display: grid; grid-template-columns: auto auto 14px; grid-template-rows: auto 6px; gap: 6px 12px; padding: 10px 14px; align-items: center; }
+.ob-kmh b { font: 700 2.4rem/1 var(--display); }
+.ob-kmh span { font-size: 0.8rem; color: #b9bec6; margin-left: 4px; }
+.ob-gear { font: 700 2.1rem/1 var(--display); min-width: 1.2ch; text-align: center; color: #f2c200; }
+.ob-rpm { grid-column: 1 / 3; height: 6px; background: rgba(255, 255, 255, 0.15); border-radius: 3px; overflow: hidden; }
+.ob-rpm i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #2bb673, #f2c200 70%, #e1261c); }
+.ob-pedals { grid-column: 3; grid-row: 1 / 3; display: flex; gap: 3px; height: 54px; align-items: flex-end; }
+.ob-pedals i { width: 5px; border-radius: 2px; height: 0; }
+.ob-pedals .thr { background: #2bb673; }
+.ob-pedals .brk { background: #e1261c; }
+.ob-gaps { right: 12px; bottom: 12px; padding: 10px 14px; font-size: 0.9rem; display: grid; gap: 3px; min-width: 190px; }
+.ob-tyre { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.35); }
+.ob-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 10px; }
+.ob-pick { display: flex; gap: 8px; align-items: center; flex: 0 1 420px; min-width: 0; }
+.ob-select {
+  width: auto; min-width: 0; max-width: 100%; flex: 1 1 auto;
+  font: 500 0.95rem var(--body); color: var(--paint); background: var(--tarmac-2);
+  border: 1px solid var(--tarmac-line); border-radius: 8px; padding: 7px 10px;
+}
+@media (max-width: 640px) {
+  .ob-id { top: 8px; left: 8px; padding: 6px 10px 6px 8px; }
+  .ob-pos { font-size: 1.4rem; }
+  .ob-id strong { font-size: 0.9rem; }
+  .ob-speed { left: 8px; bottom: 8px; padding: 6px 10px; }
+  .ob-kmh b { font-size: 1.7rem; }
+  .ob-gear { font-size: 1.5rem; }
+  .ob-pedals { height: 40px; }
+  .ob-gaps { right: 8px; top: 8px; bottom: auto; min-width: 0; font-size: 0.78rem; padding: 6px 10px; }
+  .rp-views { margin-left: 0; }
+}

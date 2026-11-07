@@ -12,6 +12,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Saira+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three.module.min.js", "three/addons/": "./vendor/addons/" } }
+  </script>
 </head>
 <body>
   <header class="masthead wrap">
@@ -112,7 +115,7 @@
       <div class="table-scroll"><table id="numbers" class="data"></table></div>
 
       <h3 id="sample-title">Watch one of those races</h3>
-      <p class="hint">One race from the simulation, replayed on the circuit. Your drivers are labelled; grey dots are the rest of the field. The dot at the end of each row in the timing tower is the tyre they're on.</p>
+      <p class="hint">One race from the simulation, replayed on the circuit. Switch to <strong>Onboard</strong> to ride along in 3D, and click any car or timing-tower row to jump into that car. The dot at the end of each tower row is the tyre they're on.</p>
       <div id="replay" class="replay"></div>
 
       <h3>Lap chart</h3>
@@ -144,7 +147,7 @@
           <p>Known weak spot: finishing positions can't show a huge winning margin, so very dominant cars look closer to their rivals than they were.</p>
         </div>
       </div>
-      <p class="fineprint" id="fineprint">Unofficial fan project, not associated with Formula 1 or the FIA. Race data from the Jolpica F1 database. Circuit layouts from <a href="https://github.com/bacinger/f1-circuits">bacinger/f1-circuits</a> (MIT licence, © Tomislav Bacinger).</p>
+      <p class="fineprint" id="fineprint">Unofficial fan project, not associated with Formula 1 or the FIA. Race data from the Jolpica F1 database. Circuit layouts from <a href="https://github.com/bacinger/f1-circuits">bacinger/f1-circuits</a> (MIT licence, © Tomislav Bacinger). 3D graphics with <a href="https://threejs.org">three.js</a> (MIT licence).</p>
     </section>
   </main>
 
