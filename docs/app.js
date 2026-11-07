@@ -27,6 +27,10 @@
   let worker = null;
   let runId = 0;
   let lastSummary = null;
+  let lastRun = null;
+  let circuits = {};
+  let replay = null;
+  let lapCursor = null;
   const state = {
     track: "silverstone", weather: "random", reliability: "modern", field: "generic", sims: 1000,
     safetyCar: true, peak: false, sameCar: null, slots: [],
@@ -42,6 +46,7 @@
     try {
       const [r, t] = await Promise.all([fetch("data/ratings.json"), fetch("data/tracks.json")]);
       M = new F1Sim.Model(await r.json(), await t.json());
+      fetch("data/circuits.json").then((c) => c.json()).then((c) => { circuits = c.circuits || {}; }).catch(() => {});
     } catch (e) {
       $("status").textContent = "Couldn't load the ratings data. Reload the page to try again.";
       return;
@@ -233,6 +238,7 @@
       reliability: state.reliability, seed: 2026,
     };
     const id = ++runId;
+    lastRun = { picks, options, track: state.track };
     $("go").disabled = true;
     setLights(0);
     $("status").textContent = `Racing… 0 of ${fmtInt(state.sims)}`;
@@ -257,6 +263,7 @@
         if (ev.data.id !== id) return;
         if (ev.data.type === "progress") onProgress(ev.data.value);
         else if (ev.data.type === "done") onDone(ev.data.summary);
+        else if (ev.data.type === "race") return;
         else { $("go").disabled = false; setLights(0); $("status").textContent = `The simulation stopped: ${ev.data.message}`; }
       };
       worker.postMessage({ id, picks, track: state.track, options });
@@ -352,10 +359,36 @@
     renderSample(s, color);
   }
 
+  // a fresh single race with the same line-up, for the replay
+  function anotherRace() {
+    if (!lastSummary || !lastRun) return;
+    const seed = Math.floor(Math.random() * 1e9);
+    const show = (race) => {
+      const s2 = Object.assign({}, lastSummary, { sample: race.sample });
+      lastSummary = s2;
+      const color = Object.fromEntries(s2.inputOrder.map((u) => [u.key, u.color]));
+      renderSample(s2, color);
+    };
+    if (worker) {
+      const id = ++runId;
+      const prev = worker.onmessage;
+      worker.onmessage = (ev) => {
+        if (ev.data.id !== id) return prev && prev(ev);
+        if (ev.data.type === "race") show(ev.data.race);
+      };
+      worker.postMessage({ id, kind: "race", seed, picks: lastRun.picks, track: lastRun.track, options: lastRun.options });
+    } else {
+      const bds = lastRun.picks.map((p) => M.entry(p.driver, p.car, p.peak));
+      show(F1Sim.sampleRace(M, bds, lastRun.track, lastRun.options, seed));
+    }
+  }
+
   function renderSample(s, color) {
     const smp = s.sample, t = s.track, L = t.laps;
     const words = { dry: "a dry race", wet: "a wet start", mixed: "rain arriving mid-race" };
-    $("sample-title").textContent = `One of those races, lap by lap (${words[smp.weather]})`;
+    $("sample-title").textContent = `Watch one of those races (${words[smp.weather]})`;
+    if (!replay) replay = new Replay.ReplayView($("replay"), { onAnother: anotherRace, onLap: (lap) => lapCursor && lapCursor(lap) });
+    replay.load(smp, s.entryInfo, t, circuits[s.trackRef], color);
     const users = s.inputOrder;
     const series = users.map((u) => ({ key: u.key, name: u.name, color: color[u.key], pts: smp.positions[u.key] }));
     let maxPos = 5;
@@ -421,6 +454,11 @@
     const legend = el("div", { class: "legend", style: "margin:0 0 8px" },
       series.map((se) => el("span", {}, el("i", { style: `background:${se.color}` }), se.name)));
     box.replaceChildren(legend, svg, tip);
+    // follows the replay
+    const marker = S("line", { y1: mt, y2: H - mb, stroke: "currentColor", "stroke-opacity": 0.55, "stroke-dasharray": "4 4" });
+    svg.insertBefore(marker, cross);
+    lapCursor = (lap) => { marker.setAttribute("x1", x(lap)); marker.setAttribute("x2", x(lap)); };
+    lapCursor(1);
     const move = (clientX) => {
       const rect = svg.getBoundingClientRect();
       const vx = ((clientX - rect.left) / rect.width) * W;

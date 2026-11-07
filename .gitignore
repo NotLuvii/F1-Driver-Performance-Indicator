@@ -5,3 +5,4 @@ __pycache__/
 *.zip
 node_modules/
 .vs/
+data/raw/

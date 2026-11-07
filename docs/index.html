@@ -111,8 +111,12 @@
       <h3>Full numbers</h3>
       <div class="table-scroll"><table id="numbers" class="data"></table></div>
 
-      <h3 id="sample-title">One of those races, lap by lap</h3>
-      <p class="hint">Positions of your drivers. Grey bands are safety cars; blue shading is a wet track.</p>
+      <h3 id="sample-title">Watch one of those races</h3>
+      <p class="hint">One race from the simulation, replayed on the circuit. Your drivers are labelled; grey dots are the rest of the field. The dot at the end of each row in the timing tower is the tyre they're on.</p>
+      <div id="replay" class="replay"></div>
+
+      <h3>Lap chart</h3>
+      <p class="hint">Positions of your drivers in the same race. Grey bands are safety cars; blue shading is a wet track.</p>
       <div id="lapchart" class="lapchart"></div>
       <p id="sample-result" class="sample-result"></p>
       <details class="log">
@@ -140,12 +144,13 @@
           <p>Known weak spot: finishing positions can't show a huge winning margin, so very dominant cars look closer to their rivals than they were.</p>
         </div>
       </div>
-      <p class="fineprint" id="fineprint">Unofficial fan project, not associated with Formula 1 or the FIA. Race data from the Jolpica F1 database.</p>
+      <p class="fineprint" id="fineprint">Unofficial fan project, not associated with Formula 1 or the FIA. Race data from the Jolpica F1 database. Circuit layouts from <a href="https://github.com/bacinger/f1-circuits">bacinger/f1-circuits</a> (MIT licence, © Tomislav Bacinger).</p>
     </section>
   </main>
 
   <datalist id="driver-list"></datalist>
   <script src="sim.js"></script>
+  <script src="replay.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

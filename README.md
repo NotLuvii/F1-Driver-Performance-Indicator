@@ -50,6 +50,15 @@ fitted ratings. The Python and JavaScript simulators agree to within Monte Carlo
 percentage points at 2,000 races). Matchups are saved in the page address, so any race can be shared
 as a link.
 
+Each result includes an animated **race replay** (`docs/replay.js`): the cars move around the real circuit
+layout, with a live timing tower (gaps, pit stops, tyres), safety-car and rain flags and race control
+messages. You can play or pause it, run it at 1× to 100× speed, jump to any lap, skip to the finish, or
+generate a different race with the same line-up. Cars slow down in corners and speed up on straights
+using a speed profile derived from each circuit's curvature. Circuit outlines come from
+[bacinger/f1-circuits](https://github.com/bacinger/f1-circuits) (MIT licence) and are rebuilt with
+`python -m f1dpi.circuits`. The four old circuits that dataset doesn't cover (Valencia, Yeongam,
+Buddh, Fuji) are shown on a generic loop.
+
 To preview it locally, run `python -m http.server -d docs 8000` and open http://localhost:8000.
 After refitting with `python -m f1dpi build`, copy `model/*.json` into `docs/data/`, then publish:
 
@@ -230,6 +239,7 @@ f1dpi/
   montecarlo.py  run N races, aggregate
   cli.py         command line
   download.py    fetch a fresh data dump
+  circuits.py    circuit outlines for the website's race replay
 app.py           Streamlit app
 docs/            the public website (static HTML/CSS/JS + a JavaScript port of the simulator)
 model/           fitted ratings.json + tracks.json
@@ -239,5 +249,6 @@ tests/           pytest suite
 ## Data
 
 Race data comes from the [Jolpica F1](https://github.com/jolpica/jolpica-f1) database, the community
-successor to the Ergast API. Ratings were last rebuilt from the dump covering races through the 2026
+successor to the Ergast API. Circuit layouts come from
+[bacinger/f1-circuits](https://github.com/bacinger/f1-circuits) (MIT licence, © 2019-2025 Tomislav Bacinger). Ratings were last rebuilt from the dump covering races through the 2026
 Singapore Grand Prix.

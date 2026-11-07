@@ -233,6 +233,9 @@
 
       // race state
       let total = gridPos.map((g) => GRID_SLOT_GAP * (g - 1));
+      // replay trace: when each car crosses the line, its tyre each lap, its pit laps, flag state
+      const trace = record ? { start: total.slice(), lapEnd: E.map(() => []), tyres: E.map(() => []),
+                               pits: E.map(() => []), neutral: [] } : null;
       const running = Array(n).fill(true), lapsDone = Array(n).fill(0);
       const dnfReason = Array(n).fill(null), dnfLap = Array(n).fill(null);
       const stops = Array(n).fill(0), lapsLed = Array(n).fill(0), bestLap = Array(n).fill(Infinity);
@@ -362,6 +365,10 @@
         }
         total = nt;
 
+        if (record) {
+          trace.neutral.push(neutral);
+          for (const i of idx) { trace.tyres[i].push(compound[i]); if (pitting[i]) trace.pits[i].push(lap); }
+        }
         // tyres after stops
         for (const i of idx) {
           if (pitting[i]) {
@@ -411,6 +418,7 @@
 
         for (const i of idx) if (running[i]) {
           lapsDone[i] = lap;
+          if (record) trace.lapEnd[i].push(total[i]);
           if (neutral === null && lap > 1 && lt[i] < bestLap[i]) bestLap[i] = lt[i];
         }
         const runIdx = argsort(total).filter((i) => running[i]);
@@ -434,9 +442,14 @@
       });
       events.sort((a, b) => a[0] - b[0]);
       const pos = {};
-      if (record) E.forEach((e, i) => { pos[e.key] = positions[i]; });
+      let tr = null;
+      if (record) {
+        E.forEach((e, i) => { pos[e.key] = positions[i]; });
+        tr = { neutral: trace.neutral, cars: {} };
+        E.forEach((e, i) => { tr.cars[e.key] = { start: trace.start[i], lapEnd: trace.lapEnd[i], tyres: trace.tyres[i], pits: trace.pits[i] }; });
+      }
       return { order: fin.map((i) => E[i].key), cars, weather, safetyCars: nSc, vscs: nVsc, events,
-               positions: record ? pos : null, wetness: record ? Array.from(wet) : null };
+               positions: record ? pos : null, wetness: record ? Array.from(wet) : null, trace: tr, laps: L };
     }
   }
 
@@ -580,7 +593,7 @@
   }
 
   // ------------------------------------------------------------------ Monte Carlo
-  function simulate(model, bds, trackRef, opts, progress) {
+  function setup(model, bds, trackRef, opts) {
     const o = Object.assign({ nSims: 1000, settings: {}, fieldSize: 20, fieldYear: null, reliability: "modern", seed: 2026 }, opts || {});
     const track = model.tracks[trackRef];
     const users = model.simEntries(bds, o.reliability);
@@ -588,6 +601,19 @@
                                      new Set(bds.map((b) => b.driverRef)), o.reliability);
     const entries = users.concat(field);
     const sim = new RaceSimulator(track, entries, model.pctPerUnit, o.settings);
+    const entryInfo = {};
+    entries.forEach((e) => { entryInfo[e.key] = { label: e.label, name: e.name, car: e.car, short: e.short, isUser: e.isUser, color: e.color || null }; });
+    return { o, track, users, entries, sim, entryInfo };
+  }
+
+  // one recorded race (for the replay's "watch another race")
+  function sampleRace(model, bds, trackRef, opts, seed) {
+    const { sim, entryInfo } = setup(model, bds, trackRef, opts);
+    return { sample: sim.run(makeRng(seed), true), entryInfo };
+  }
+
+  function simulate(model, bds, trackRef, opts, progress) {
+    const { o, track, users, entries, sim, entryInfo } = setup(model, bds, trackRef, opts);
     const rng = makeRng(o.seed);
     const keys = users.map((u) => u.key), N = o.nSims, nCars = entries.length;
     const pos = keys.map(() => new Int16Array(N)), dnf = keys.map(() => new Uint8Array(N));
@@ -634,13 +660,11 @@
     const inputOrder = rows.slice();
     rows = rows.slice().sort((a, b) => (b.beatsAll - a.beatsAll) || (a.avgPos - b.avgPos));
     const sample = sim.run(makeRng(o.seed + 1), true);
-    const labels = {};
-    entries.forEach((e) => { labels[e.key] = e; });
     return { track, trackRef, nSims: N, rows, inputOrder, h2h, keys, weatherShare: { dry: weather.dry / N, wet: weather.wet / N, mixed: weather.mixed / N },
-             scShare: sc / N, vscShare: vsc / N, breakdowns: bds, sample, fieldSize: nCars, entryInfo: labels };
+             scShare: sc / N, vscShare: vsc / N, breakdowns: bds, sample, fieldSize: nCars, entryInfo };
   }
 
-  const api = { makeRng, COMPOUNDS, optimise, wearBucket, RaceSimulator, Model, simulate, PALETTE };
+  const api = { makeRng, COMPOUNDS, optimise, wearBucket, RaceSimulator, Model, simulate, sampleRace, PALETTE };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.F1Sim = api;
 })(typeof self !== "undefined" ? self : this);
