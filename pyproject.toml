@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "f1dpi"
+version = "1.0.0"
+description = "F1 Driver Performance Indicator: put any driver in any F1 car on any circuit and simulate the race"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.26", "pandas>=2.1", "scipy>=1.11"]
+
+[project.optional-dependencies]
+app = ["streamlit>=1.50", "altair>=5.0"]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+f1dpi = "f1dpi.cli:main"
+
+[tool.setuptools]
+packages = ["f1dpi"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
